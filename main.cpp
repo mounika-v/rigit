@@ -11,6 +11,7 @@
 #include <igl/edge_lengths.h>
 #include <igl/edge_flaps.h>
 #include <fstream>
+#include <algorithm>
 
 using namespace std;
 using namespace Eigen;
@@ -224,12 +225,96 @@ int main(int argc, char * argv[])
 						}
 					}
 
+//------------------------------------------------------------------------------------------------------
+					//Removing all the zero area faces.
+					//Compare surface area of mesh with original
+					mesh::doublearea(U,F,interarea);
+					interarea = interarea.array() / 2;
 
+
+					for(int i=0; i<interarea.size(); i++)
+					{
+							if(interarea(i) < 0.0001)
+							{
+									double dist01 = sqrt( pow(( U(F(i,1),0) - U(F(i,0),0) ),2) +  pow(( U(F(i,1),1) - U(F(i,0),1) ),2) + pow(( U(F(i,1),2) - U(F(i,0),2) ),2));
+									double dist02 = sqrt( pow(( U(F(i,2),0) - U(F(i,0),0) ),2) +  pow(( U(F(i,2),1) - U(F(i,0),1) ),2) + pow(( U(F(i,2),2) - U(F(i,0),2) ),2));
+									double dist12 = sqrt( pow(( U(F(i,1),0) - U(F(i,2),0) ),2) +  pow(( U(F(i,1),1) - U(F(i,2),1) ),2) + pow(( U(F(i,1),2) - U(F(i,2),2) ),2));
+									int s,t;
+									if(dist01 < dist02 && dist01 < dist12)
+									{
+										s=0;t=1;
+									}
+									else if(dist02 <dist01 && dist02 < dist12)
+									{
+										s=0; t=2;
+									}
+									else
+									{
+										s=1; t=2;
+									}
+
+									for(int k=0; k<E.rows(); k++)
+									{
+										if((E(k,1)==F(i,s) && E(k,0)==F(i,t)) || (E(k,1)==F(i,t) && E(k,0) == F(i,s)))
+										{
+											E(k,0) = 0; E(k,1) = 0;
+										}
+										else if(E(k,1) == F(i,s))
+										{
+											E(k,1) = F(i,t);
+										}
+										else if(E(k,0) == F(i,s))
+										{
+											E(k,0) = F(i,t);
+										}
+									}
+									int e1 = F(i,s),e2 = F(i,t);
+									for(int k = 0; k<F.rows(); k++)
+									{
+											if((F(k,0)==e1 || F(k,1) == e1 || F(k,2)==e1) && (F(k,0) == e2 || F(k,2) == e2 || F(k,1)==e2))
+											{
+												F(k,0) = 0; F(k,1)=0; F(k,2) = 0;
+											}
+											else if(F(k,0) == e1 && F(k,1) != e2 && F(k,2) != e2)
+											{
+												F(k,0) = e2;
+											}
+											else if(F(k,1) == e1 && F(k,0) != e2 && F(k,2) != e2)
+											{
+												F(k,1) = e2;
+											}
+											else if(F(k,2) == e1 && F(k,1) != e2 && F(k,0) != e2)
+											{
+												F(k,2) = e2;
+											}
+									}
+
+							}
+					}
+
+//-------------------------------------------------------------------------------------------------------
 					/*Second step:*/
 
-					vector <MatrixXd> qmatrix;
+				vector <MatrixXd> qmatrix;
+				vector <vector<int>> history;
 
 					igl::edge_flaps(F,E,EMAP,EF,EI); //Creating an edge Matrix
+					cout<<"Edges: "<<E.rows()<<"  Faces: "<<F.rows()<<endl;
+					cout<<"EMAP: "<<EMAP.rows()<<","<<EMAP.cols()<<endl;
+					cout<<"EF: "<<EF.rows()<<","<<EF.cols()<<endl;
+					cout<<"EI: "<<EI.rows()<<","<<EI.cols()<<endl;
+
+					// for(int i=0;i<EF.rows();i++)
+					// {
+					// 	cout<<EF(i,0)<<"   "<<EF(i,1)<<endl;
+					// }
+
+					for(int i=0;i<U.rows(); i++)
+					{
+						vector<int> temp;
+						temp.push_back(i);
+						history.push_back(temp);
+					}
 
 
 					//Creating a Q matrix for all the vertices.
@@ -242,6 +327,8 @@ int main(int argc, char * argv[])
 					{
 						for(int j=0; j<2; j++)
 						{
+							if(!(E(i,0) == 0 && E(i,1) == 0))
+							{
 							MatrixXd kij = MatrixXd::Zero(3,4);
 							Vector3d edgij;
 							int k=(j+1)%2;
@@ -259,6 +346,7 @@ int main(int argc, char * argv[])
 							kij<<a,b;
 							MatrixXd ktk = kij.transpose() * kij;
 							qmatrix.at(E(i,j)) += ktk;
+							}
 						}
 					}
 
@@ -273,13 +361,20 @@ int main(int argc, char * argv[])
 					}
 
 
+					bool zeroflag = true;
+					while(zeroflag)
+					{
+
 					//Creating fb. We are taking two cols of fb because the direction of collapse matters for fb.
 					//calculating norms of all the edges.
 					VectorXd normvec = VectorXd::Zero(E.rows());
 					for(int i=0;i<E.rows();i++)
 					{
-						double dist = sqrt( pow(( U(E(i,1),0) - U(E(i,0),0) ),2) +  pow(( U(E(i,1),1) - U(E(i,0),1) ),2) + pow(( U(E(i,1),2) - U(E(i,0),2) ),2) );
-						normvec(i) = dist;
+						if(!(E(i,1)==0 && E(i,0)==0))
+						{
+								double dist = sqrt( pow(( U(E(i,1),0) - U(E(i,0),0) ),2) +  pow(( U(E(i,1),1) - U(E(i,0),1) ),2) + pow(( U(E(i,1),2) - U(E(i,0),2) ),2) );
+						 		normvec(i) = dist;
+						}
 					}
 					//creating fb entry as product of currentedge and sum of all the other edges.
 					MatrixXd fbedge(E.rows(),2);
@@ -300,9 +395,9 @@ int main(int argc, char * argv[])
 					double wa = 1.0, wb = 0.1;
 
 					//For each iteration we will isolate the least cost edge. coli is source. colj is destination.
-					bool zeroflag = true;
-					while(zeroflag)
-					{
+					// bool zeroflag = true;
+					// while(zeroflag)
+					// {
 
 						int rowi=0,coli=-1,colj=-1;
 						double mincost=0;
@@ -310,11 +405,9 @@ int main(int argc, char * argv[])
 						{
 							if(!(E(i,0)==0 && E(i,1)==0))
 							{
-								//cout<<"inside edge not zero"<<"    ";
 								int ci = fbedge(i,0) < fbedge(i,1) ? 0 : 1;
 								int cj = fbedge(i,0) < fbedge(i,1) ? 1 : 0;
 								double totalcost = wa * (fa(E(i,0))+fa(E(i,1))) + wb * fbedge(i,ci);
-								//cout<<totalcost<<"   "<<mincost<<endl;
 								if(i == 0 || mincost == 0)
 								{
 									mincost = totalcost;
@@ -329,14 +422,15 @@ int main(int argc, char * argv[])
 						}
 
 						// //Collapsing the edge
-						cout<<"Collapsing: "<<rowi<<" : "<<E(rowi,coli)<<" to "<<E(rowi,colj)<<endl;
-
+						// cout<<"Collapsing Edge: "<<rowi<<" - ("<<E(rowi,0)<<","<<E(rowi,1)<<")";
+						// cout<<"   Faces: ";
 						//Faces with the edge is made zero and the face with only source is changed to have the destination
 						for(i=0;i<F.rows();i++)
 						{
+							if(!(F(i,0)==0 && F(i,1)==0 && F(i,2)==0)){
 								if((F(i,0)==E(rowi,0)||F(i,1)==E(rowi,0)||F(i,2)==E(rowi,0))&&(F(i,0)==E(rowi,1)||F(i,1)==E(rowi,1)||F(i,2)==E(rowi,1)))
 								{
-										//cout<<"Found a face with edge("<<E(rowi,0)<<","<<E(rowi,1)<<"): "<<F(i,0)<<" "<<F(i,1)<<" "<<F(i,2)<<endl;
+									// cout<<i<<" ";
 									F(i,0) = 0;F(i,1)=0;F(i,2) = 0;
 								}
 								else if((F(i,0)==E(rowi,coli)||F(i,1)==E(rowi,coli)||F(i,2)==E(rowi,coli))&&(F(i,0)!=E(rowi,colj)&&F(i,1)!=E(rowi,colj)&&F(i,2)!=E(rowi,colj)))
@@ -347,11 +441,39 @@ int main(int argc, char * argv[])
 										F(i,1) = E(rowi,colj);
 									else if(F(i,2) == E(rowi,coli))
 										F(i,2) = E(rowi,colj);
+									// cout<<"  -"<<i<<"  ";
+								}
+							}
+						}
+
+						// cout<<"Merging "<<E(rowi,coli)<<" to "<<E(rowi,colj)<<" : "<<history.at(E(rowi,coli)).size()<<" to "<<history.at(E(rowi,colj)).size()<<endl;
+						for(int iter=0;iter<history.at(E(rowi,coli)).size();iter++)
+						{
+								if(find(history.at(E(rowi,colj)).begin(),history.at(E(rowi,colj)).end(),history.at(E(rowi,coli)).at(iter)) == history.at(E(rowi,colj)).end())
+								{
+										history.at(E(rowi,colj)).push_back(history.at(E(rowi,coli)).at(iter));
 								}
 						}
 
+							// cout<<"    Modified: ";
 							//make the edge zero
+							for(i=0;i<E.rows();i++)
+							{
+								if(i!=rowi && !(E(i,0)==0 && E(i,1)==0))
+								{
+									if(E(i,0)==E(rowi,coli) && E(i,1)!=E(rowi,colj))
+									{
+										E(i,0) = E(rowi,colj);
+									}
+									else if(E(i,1)==E(rowi,coli) && E(i,0) != E(rowi,colj))
+									{
+										E(i,1) = E(rowi,colj);
+									}
+								}
+							}
 							E(rowi,0) = 0; E(rowi,1) = 0;
+							// cout<<endl<<endl<<endl;
+
 
 							//Update the qmatrix and the fa of destination.
 							VectorXd pt(4);
@@ -365,27 +487,64 @@ int main(int argc, char * argv[])
 							{
 								if(!(F(iter,0)==0&&F(iter,1)==0&&F(iter,2)==0))
 								{
-									cout<<"There is non zero face."<<F(iter,0)<<" "<<F(iter,1)<<" "<< F(iter,2)<<endl;
 									zeroflag = true; break;
 								}
 							}
 					}
-
-					ofstream op;
-					op.open("skeleton.raw");
+					cout<<endl;int count=0;
+					vector<int> remain;
 					for(int i=0;i<E.rows();i++)
 					{
 						if(!(E(i,0)==0 && E(i,1)==0))
 						{
-							op<<E(i,0)<<" "<<E(i,1)<<endl;
+							if(find(remain.begin(),remain.end(),E(i,0)) == remain.end())
+							{
+								remain.push_back(E(i,0));
+							}
+							else if(find(remain.begin(),remain.end(),E(i,1)) == remain.end())
+							{
+								remain.push_back(E(i,1));
+							}
+							// count++;
+							// cout<<count<<"     "<<history.at(E(i,0)).size()<<" , "<<history.at(E(i,1)).size()<<endl;
 						}
 					}
-					for(int i=0;i<V.rows();i++)
+
+					/*Third step */
+
+					// for(int i=0; i<remain.size(); i++)
+					// {
+					// 		float xdist = 0,ydist=0;
+					// 		float dist = 0;
+					// 		vector<int> indlist = history.at(remain.at(i));
+					// 		for(int j=1; j<indlist.size(); j++)
+					// 		{
+					// 			dist += sqrt(pow((U(indlist.at(j),0) - V(indlist.at(j),0)),2) + pow((U(indlist.at(j),1) - V(indlist.at(j),1)),2));
+					// 			xdist += (U(indlist.at(j),0) - V(indlist.at(j),0));
+					// 			ydist += (U(indlist.at(j),1) - V(indlist.at(j),1));
+					// 		}
+					//
+					// 		/*option1*/
+					// 		xdist /= (indlist.size()-1);ydist /= (indlist.size()-1);
+					// 		U(remain.at(i),0) -= xdist; U(remain.at(i),1) -= ydist;
+					//
+					// 		/*option2*/
+					// 		//dist /= (length of sum of two adjacent edges) (?)
+					// }
+
+
+
+					ofstream op;
+					op.open("../1d/skeleton.raw");
+					for(int i=0;i<E.rows();i++)
 					{
-						op<<V(i,0)<<" "<<V(i,1)<<" "<<V(i,2)<<endl;
+						if(!(E(i,0)==0 && E(i,1)==0))
+						{
+							op<<U(E(i,0),0)<<" "<<U(E(i,0),1)<<" "<<U(E(i,0),2)<<endl;
+							op<<U(E(i,1),0)<<" "<<U(E(i,1),1)<<" "<<U(E(i,1),2)<<endl;
+						}
 					}
 					op.close();
-
 
 
 		// Plot the mesh (Error: The new mesh has a different number of vertices/faces. Please clear the mesh before plotting.) doubt
