@@ -3,6 +3,7 @@
 
 extern GLfloat xrot,yrot,zrot;
 extern GLfloat xtran,ytran,ztran;
+extern char mode;
 
 namespace csX75
 {
@@ -17,6 +18,7 @@ namespace csX75
     glDepthFunc(GL_LESS);
     //Enable depth testing
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
   }
 
 
@@ -39,6 +41,14 @@ namespace csX75
     //!Close the window if the ESC key was pressed
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
       glfwSetWindowShouldClose(window, GL_TRUE);
+    else if (key == GLFW_KEY_E && action == GLFW_PRESS && mode == 'I')
+      mode = 'E';
+    else if (key == GLFW_KEY_I && action == GLFW_PRESS && mode != 'I')
+      mode = 'I';
+    else if (key == GLFW_KEY_M && action == GLFW_PRESS && mode == 'E')
+      mode = 'M';
+    else if (key == GLFW_KEY_A && action == GLFW_PRESS && mode == 'E')
+      mode == 'A';
     else if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
       yrot -= 1.0;
     else if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
@@ -51,6 +61,8 @@ namespace csX75
       zrot += 1.0;
     else if (key == GLFW_KEY_PAGE_DOWN && action == GLFW_PRESS)
       zrot += 1.0;
+
+    std::cout<<"Mode: "<<mode<<std::endl;
   }
 
 };

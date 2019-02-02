@@ -36,6 +36,7 @@ GLfloat xrot=0.0,yrot=0.0,zrot=0.0;
 bool enable_culling=true;
 //Running variable to toggle wireframe/solid modelling
 bool solid=true;
+char mode='I';
 
 //-------------------------------------------------------------------------
 #endif

@@ -8,5 +8,6 @@ uniform mat4 uModelViewMatrix;
 void main (void) 
 {
   gl_Position = vPosition;
+  gl_PointSize = 10.0;
   color = vColor;
 }

@@ -3,7 +3,8 @@ CC=g++
 OPENGLLIB= -lGL
 GLEWLIB= -lGLEW
 GLFWLIB = -lglfw
-LIBS=$(OPENGLLIB) $(GLEWLIB) $(GLFWLIB)
+GLULIB = -lGLU
+LIBS=$(OPENGLLIB) $(GLEWLIB) $(GLFWLIB) $(GLULIB)
 LDFLAGS=-L/usr/local/lib 
 CPPFLAGS=-I/usr/local/include -I./
 
