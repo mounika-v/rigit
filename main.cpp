@@ -1298,17 +1298,17 @@ int main(int argc, char * argv[])
 						op<<V.rows()<<endl;
 						for(int kind = 0; kind < V.rows(); kind++)
 						{
-								cout<<V(kind,0)<<" "<<V(kind,1)<<endl;
+								op<<V(kind,0)<<" "<<V(kind,1)<<endl;
 						}
 						op<<U.rows()<<endl;
 						for(int kind = 0; kind < U.rows(); kind++)
 						{
-								cout<<U(kind,0)<<" "<<U(kind,1)<<endl;
+								op<<U(kind,0)<<" "<<U(kind,1)<<endl;
 						}
 						op<<E.rows()<<endl;
 						for(int kind = 0; kind < V.rows(); kind++)
 						{
-								cout<<E(kind,0)<<" "<<E(kind,1)<<endl;
+								op<<E(kind,0)<<" "<<E(kind,1)<<endl;
 						}
 						op.close();
 

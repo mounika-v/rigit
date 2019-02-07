@@ -19,6 +19,12 @@ glm::mat4 ortho_matrix;
 glm::mat4 modelview_matrix;
 GLuint uModelViewMatrix;
 
+//For glu project and gluUnProject
+GLdouble pos3D_x, pos3D_y, pos3D_z;
+GLdouble model_view[16];
+GLdouble projection[16];
+GLint viewport[4];
+
 //Skeleton data storage
 vector<vector<int>> history,E,stage2junct;
 vector<int> stage2nodes;
@@ -43,137 +49,237 @@ glm::vec4 avail_colors[4] = {
     glm::vec4(1.0f,1.0f,0.0f,1.0f)
 };
 
+int getvpositionsize()
+{
+    int count = 0;
+    for(int i=0;i<num_vertices;i++)
+    {
+       if(v_positions[i].x != 0 || v_positions[i].y != 0)
+        count++;
+        else
+        break;
+    }
+    return count;
+}
+
 void loadvertexdata()
 {
-    FILE *fp;
+    string inpline;
+    ifstream infile("vertexdata.txt");
+    getline(infile,inpline);
+    istringstream iss1(inpline);
     int i;
-    fp = fopen("vertexdata.txt","r");
-    fscanf(fp,"%d\n",&i);
+    iss1 >> i;
+
     double x,y;
     while(i>0)
     {
-        if(fscanf(fp,"%lf %lf\n",&x,&y)==2)
-        {
-            vector<double> temp;
-            temp.push_back(x);
-            temp.push_back(y);
-            V.push_back(temp);
-            i--;
-        }
+        getline(infile,inpline);
+        istringstream iss1(inpline);
+        iss1 >> x >> y;
+        vector<double> temp;
+        temp.push_back(x);
+        temp.push_back(y);
+        V.push_back(temp);
+        i--;
     }
-    fscanf(fp,"%d\n",&i);
+
+    getline(infile,inpline);
+    istringstream iss2(inpline);
+    iss2 >> i;
+
     while(i>0)
     {
-        if(fscanf(fp,"%lf %lf\n",&x,&y)==2)
-        {
-            vector<double> temp;
-            temp.push_back(x);
-            temp.push_back(y);
-            U.push_back(temp);
-            i--;
-        }
+        getline(infile,inpline);
+        istringstream iss2(inpline);
+        iss2 >> x >> y;
+        vector<double> temp;
+        temp.push_back(x);
+        temp.push_back(y);
+        U.push_back(temp);
+        i--;
     }
-    fscanf(fp,"%d\n",&i);
+
+    getline(infile,inpline);
+    istringstream iss3(inpline);
+    iss3 >> i;
+
     int dumx,dumy;
     while(i>0)
     {
-        if(fscanf(fp,"%d %d\n",&dumx,&dumy)==2)
-        {
-            vector<int> temp;
-            temp.push_back(dumx);
-            temp.push_back(dumy);
-            E.push_back(temp);
-            i--;
-        }
+        getline(infile,inpline);
+        istringstream iss3(inpline);
+        iss3 >> dumx >> dumy;
+        vector<int> temp;
+        temp.push_back(dumx);
+        temp.push_back(dumy);
+        E.push_back(temp);
+        i--;
     }
 }
 
 void loadSkeletondata()
 {
-    FILE *fp;
-    int i,nodex;
-    fp = fopen("skeldata.txt","r");
-    fscanf(fp,"%d\n",&i);
+    string inpline;
+    ifstream infile("skeldata.txt");
+    getline(infile,inpline);
+    istringstream iss(inpline);
+    int i;
+    iss >> i;
+    getline(infile, inpline);
+    istringstream iss1(inpline);
+    int x;
     while(i>0)
     {
-      fscanf(fp,"%d ",&nodex);
-      stage2nodes.push_back(nodex);
-      i--;
+        iss1 >> x;
+        stage2nodes.push_back(x);
+        i--;
     }
-    fscanf(fp,"\n");
-    fscanf(fp,"%d\n",&i);
+
+    getline(infile, inpline);
+    istringstream iss2(inpline);
+    iss2 >> i;
+    int nodex;
+
     while(i>0)
     {
-      int hsize;
-      fscanf(fp,"%d\n",&hsize);
-      vector<int> temp;
-      while(hsize>0)
-      {
-          fscanf(fp,"%d ",&nodex);
-          temp.push_back(nodex);hsize--;
+        int hsize;
+        getline(infile,inpline);
+        istringstream iss3(inpline);
+        iss3 >> hsize;
+        vector<int> temp;
+        while(hsize>0)
+        {
+            getline(infile,inpline);
+            istringstream iss4(inpline);
+            iss4 >> nodex;
+            temp.push_back(nodex);hsize--;
         }
-        fscanf(fp,"\n");
         history.push_back(temp);
+        temp.clear();
         i--;
     }
 }
 
-// generate 12 triangles: 36 vertices and 36 colors
 void loadSkeleton(void)
 {
-  FILE *fp;
-  int i;
-  double x,y,z;
-  // fp = fopen("stdskel.raw","r");
-  fp = fopen("skeleton.raw","r");
-  // fp = fopen("stand.raw","r");
-  if(fp == NULL)
-  {
-     printf("Unable to open file for reading\n");
-     exit(1);
-  }
-  i=0;
-  while(fscanf(fp,"%lf %lf %lf\n",&x,&y,&z)==3)
-  {
-      cout<<x/120-1.0<<"  "<<-y/120 + 1.0<<endl;
-      // v_positions[i] = glm::vec4(x/10,y/10,z/10,1.0f);
-      v_positions[i]=glm::vec4(x/120 - 1.0, -y/120 + 1.0,z/120,1.0f);
-      // v_positions[i]=glm::vec4(6*x/100, 6*y/100, 6*z/100, 1.0f);
-      v_colors[i] = avail_colors[i%4];//glm::vec4(1.0f,1.0f,0.0f,1.0f);
-      i++;
-  }
-  // num_vertices = i;
+    FILE *fp;
+    int i;
+    double x,y,z;
+    // fp = fopen("stdskel.raw","r");
+    fp = fopen("skeleton.raw","r");
+    // fp = fopen("stand.raw","r");
+    if(fp == NULL)
+    {
+        printf("Unable to open file for reading\n");
+        exit(1);
+    }
+    i=0;
+    while(fscanf(fp,"%lf %lf %lf\n",&x,&y,&z)==3)
+    {
+        // v_positions[i] = glm::vec4(x/10,y/10,z/10,1.0f);
+        v_positions[i]=glm::vec4(x/120 - 1.0, -y/120 + 1.0,z/120,1.0f);
+        // v_positions[i]=glm::vec4(6*x/100, 6*y/100, 6*z/100, 1.0f);
+        v_colors[i] = avail_colors[i%4];//glm::vec4(1.0f,1.0f,0.0f,1.0f);
+        i++;
+    }
+    fclose(fp);
+    // num_vertices = i;
+}
+
+void renderGL(void)
+{
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  rotation_matrix = glm::rotate(glm::mat4(1.0f), xrot, glm::vec3(1.0f,0.0f,0.0f));
+  rotation_matrix = glm::rotate(rotation_matrix, yrot, glm::vec3(0.0f,1.0f,0.0f));
+  rotation_matrix = glm::rotate(rotation_matrix, zrot, glm::vec3(0.0f,0.0f,1.0f));
+  ortho_matrix = glm::ortho(-2.0, 2.0, -2.0, 2.0, -2.0, 2.0);
+
+  modelview_matrix = ortho_matrix * rotation_matrix;
+
+  glUniformMatrix4fv(uModelViewMatrix, 1, GL_FALSE, glm::value_ptr(modelview_matrix));
+  // Draw
+  glDrawArrays(GL_LINES, 0, num_vertices);
+  glDrawArrays(GL_POINTS, 0, num_vertices);
+
+}
+
+void changeObjects(){
+
+  // //Copy the points into the current buffer
+  // glBufferData (GL_ARRAY_BUFFER, sizeof (v_positions) + sizeof(v_colors), NULL, GL_DYNAMIC_DRAW);
+  // glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(v_positions), v_positions );
+  // glBufferSubData( GL_ARRAY_BUFFER, sizeof(v_positions), sizeof(v_colors), v_colors );
+
+
+  //Ask GL for a Vertex Attribute Object (vao)
+  glGenVertexArrays (1, &vao);
+  //Set it as the current array to be used by binding it
+  glBindVertexArray (vao);
+
+  //Ask GL for a Vertex Buffer Object (vbo)
+  glGenBuffers (1, &vbo);
+  //Set it as the current buffer to be used by binding it
+  glBindBuffer (GL_ARRAY_BUFFER, vbo);
+  //Copy the points into the current buffer
+  glBufferData (GL_ARRAY_BUFFER, sizeof (v_positions) + sizeof(v_colors), NULL, GL_DYNAMIC_DRAW);
+  glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(v_positions), v_positions );
+  glBufferSubData( GL_ARRAY_BUFFER, sizeof(v_positions), sizeof(v_colors), v_colors );
+
+  // Load shaders and use the resulting shader program
+  std::string vertex_shader_file("03_vshader.glsl");
+  std::string fragment_shader_file("03_fshader.glsl");
+
+  std::vector<GLuint> shaderList;
+  shaderList.push_back(csX75::LoadShaderGL(GL_VERTEX_SHADER, vertex_shader_file));
+  shaderList.push_back(csX75::LoadShaderGL(GL_FRAGMENT_SHADER, fragment_shader_file));
+
+  shaderProgram = csX75::CreateProgramGL(shaderList);
+  glUseProgram( shaderProgram );
+
+  // set up vertex arrays
+  GLuint vPosition = glGetAttribLocation( shaderProgram, "vPosition" );
+  glEnableVertexAttribArray( vPosition );
+  glVertexAttribPointer( vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0) );
+
+  GLuint vColor = glGetAttribLocation( shaderProgram, "vColor" );
+  glEnableVertexAttribArray( vColor );
+  glVertexAttribPointer( vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(sizeof(v_positions)) );
+
+  uModelViewMatrix = glGetUniformLocation( shaderProgram, "uModelViewMatrix");
+
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && mode == 'M') // && mods == GLFW_MOD_SHIFT)
     {
+        cout<<"Mouse clicked and mode is M and src picked? "<<fetched_first<<endl;
         if(!fetched_first)
         {
             glfwGetCursorPos(window, &xpos1, &ypos1);
-            GLdouble pos3D_x, pos3D_y, pos3D_z;
-            GLdouble model_view[16];
-glGetDoublev(GL_MODELVIEW_MATRIX, model_view);
+            // gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos3D_y, &pos3D_z);
+            //
+            // xpos1 = 2 * pos3D_x;
+            // ypos1 = 2 * pos3D_y;
 
-GLdouble projection[16];
-glGetDoublev(GL_PROJECTION_MATRIX, projection);
+            cout<<"Clicked  and comparing with"<<endl;
 
-GLint viewport[4];
-glGetIntegerv(GL_VIEWPORT, viewport);
-gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos3D_y, &pos3D_z);
-              cout<<pos3D_x<<" "<<pos3D_y<<" "<<pos3D_z<<endl;
-            //Convert it to world coordinates
-            //For now assuming that xpos1 and ypos1 are world coordinates
+            //Search for the clicked point in the existing nodes.
             for(int i=0;i<stage2nodes.size();i++)
             {
                 double currx,curry;
-                currx = U.at(stage2nodes.at(i)).at(0)/120 - 1.0;
-                curry = U.at(stage2nodes.at(i)).at(1)/120 - 1.0;
-                //pixel size is 10.. without convertion,
-                if(xpos1 >= currx-5 && xpos1<= currx+5 && ypos1 >= curry-5 && ypos1<=curry-5)
+                currx = U[stage2nodes.at(i)][0]/120 - 1.0;
+                curry = U[stage2nodes.at(i)][1]/120 - 1.0;
+
+                //Project it to compare with clicked coordinate.
+                double chkx,chky,chkz;
+                gluProject(currx/2,curry/2,0.0,model_view,projection,viewport,&chkx,&chky,&chkz);
+                // cout<<i<<" : "<<xpos1<<" "<<ypos1<<" -- "<<chkx<<" "<<chky<<endl;
+
+                if((xpos1 <= chkx+5 && xpos1 >= chkx - 5) && (ypos1 <= chky+5 && ypos1 >= chky - 5))
                 //If the clicked position is somewhere in the 10*10 square of the node, we pick the node as src
-                //keep the -y in mind and make changes if needed
                 {
                     srcnodeindex = stage2nodes.at(i);
                     fetched_first = !fetched_first; break;
@@ -183,22 +289,32 @@ gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos
         else
         {
             glfwGetCursorPos(window, &xpos2, &ypos2);
-            cout<<"x: "<<xpos2<<"  y: "<<ypos2<<endl;
-            //convert it to world coordinates
-            //Assuming the conversion done,
+            // gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos3D_y, &pos3D_z);
+            //
+            // xpos1 = 2 * pos3D_x;
+            // ypos1 = 2 * pos3D_y;
+
+            cout<<"Clicked  and comparing with"<<endl;
+
+            //Search for the clicked point in the existing nodes.
             for(int i=0;i<stage2nodes.size();i++)
             {
                 double currx,curry;
-                currx = U.at(stage2nodes.at(i)).at(0)/120 - 1.0;
-                curry = U.at(stage2nodes.at(i)).at(1)/120 - 1.0;
-                //pixel size is 10.. without convertion,
-                if(xpos2 >= currx-5 && xpos2<= currx+5 && ypos2 >= curry-5 && ypos2<=curry-5 && i!=srcnodeindex)
+                currx = U[stage2nodes.at(i)][0]/120 - 1.0;
+                curry = U[stage2nodes.at(i)][1]/120 - 1.0;
+
+                //Project it to compare with clicked coordinate.
+                double chkx,chky,chkz;
+                gluProject(currx/2,curry/2,0.0,model_view,projection,viewport,&chkx,&chky,&chkz);
+                // cout<<i<<" : "<<xpos1<<" "<<ypos1<<" -- "<<chkx<<" "<<chky<<endl;
+
+                if((xpos2 <= chkx+5 && xpos2 >= chkx - 5) && (ypos2 <= chky+5 && ypos2 >= chky - 5))
                 //If the clicked position is somewhere in the 10*10 square of the node, we pick the node as src
-                //keep the -y in mind and make changes if needed
                 {
                     destnodeindex = stage2nodes.at(i);
                     fetched_first = !fetched_first;
-                    cout<<"fetched both the points. right click mouse to merge"<<endl;break;
+                    cout<<"fetched both the points. right click mouse to merge"<<endl;
+                    cout<<fetched_first<<"   "<<srcnodeindex<<"    "<<destnodeindex<<endl;break;
                 }
             }
         }
@@ -206,12 +322,48 @@ gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos
     else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS && mode == 'M' && !fetched_first && srcnodeindex != destnodeindex)
     {
         //Merging the srcnode and destnodeindex
-        //Making vertex position as 0,0
-        U.at(srcnodeindex).at(0) = 0.0; U.at(srcnodeindex).at(1) = 0.0;
 
-        //Correcting vpositions and vcolors matrix data along with edge data.
+        //Correcting vpositions and vcolors matrix data.
+        for(int i=0;i<2*stage2nodes.size();i+=2)
+        {
+            double vposx = v_positions[i].x;
+            double vposy = v_positions[i].y;
+            double vposx1 = v_positions[i+1].x;
+            double vposy1 = v_positions[i+1].y;
+            double srcvertx = U[srcnodeindex][0]/120-1.0;
+            double srcverty = 1.0 - (U[srcnodeindex][1]/120);
+            double destvertx = U[destnodeindex][0]/120-1.0;
+            double destverty = 1.0 - (U[destnodeindex][1]/120);
+
+            if((abs(vposx - srcvertx) < 0.01 && abs(vposy - srcverty) < 0.01) && !(abs(vposx1 - destvertx)<0.01 && abs(vposy1 - destverty)<0.01))
+            {
+                cout<<"Changing i"<<endl;
+                v_positions[i].x = destvertx;
+                v_positions[i].y = destverty;
+            }
+            else if((abs(vposx1 - srcvertx)<0.01 && abs(vposy1 - srcverty) < 0.01) && !(abs(vposx - destvertx) < 0.01 && abs(vposy - destverty) < 0.01 ))
+            {
+                cout<<"Changing i+1"<<endl;
+                v_positions[i+1].x = destvertx;
+                v_positions[i+1].y = destverty;
+            }
+            else if((abs(vposx - srcvertx) < 0.01 && abs(vposy - srcverty)<0.01 && abs(vposx1 - destvertx) < 0.01 && abs(vposy1 - destverty)<0.01) ||
+                    (abs(vposx - destvertx)<0.01 && abs(vposy - destverty)<0.01 && abs(vposx1 - srcvertx) < 0.01 && abs(vposy1 - srcverty)<0.01))
+            {
+                cout<<"removing at "<<i<<endl;
+                for(int ki=i; ki <= 2*stage2nodes.size()-1; ki+=2)
+                {
+                    v_positions[ki] = v_positions[ki+2];
+                    v_positions[ki+1] = v_positions[ki+3];
+                }
+                i-=2;
+            }
+        }
+
+
         int positionindex = 0;
         //Removing the edges
+        cout<<"removing edges"<<endl;
         for(int i=0;i<E.size();i++)
         {
             if(!(E[i][0] == 0 && E[i][1] == 0))
@@ -219,31 +371,21 @@ gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos
                 if(E[i][0] == srcnodeindex && E[i][1] != destnodeindex)
                 {
                   E[i][0] = destnodeindex;
-                  double x,y;
-                  x = U[destnodeindex][0]; y = U[destnodeindex][1];
-                  v_positions[2*positionindex]=glm::vec4(x/120 - 1.0, -y/120 + 1.0,0.0f,1.0f);
                 }
                 else if(E[i][1] == srcnodeindex && E[i][0] != destnodeindex)
                 {
                   E[i][1] = destnodeindex;
-                  double x,y;
-                  x = U[destnodeindex][0]; y = U[destnodeindex][1];
-                  v_positions[2*positionindex + 1]=glm::vec4(x/120 - 1.0, -y/120 + 1.0,0.0f,1.0f);
                 }
                 else if((E[i][0] == srcnodeindex && E[i][1] == destnodeindex)|| (E[i][1] == srcnodeindex && E[i][0] == destnodeindex))
                 {
                   E[i][1] = 0;  E[i][0] = 0;
-                  for(int ki = 2*positionindex;ki<num_vertices;ki++)
-                  {
-                      v_positions[ki] = v_positions[ki+2];
-                      v_colors[ki] = v_colors[ki+2];
-                  }
                 }
                 positionindex++;
             }
         }
 
         //change history of destination node
+        cout<<"changing vertex history"<<endl;
         for(int i=0;i<history.at(srcnodeindex).size();i++)
         {
             if(find(history.at(destnodeindex).begin(),history.at(destnodeindex).end(),history.at(srcnodeindex).at(i)) == history.at(destnodeindex).end())
@@ -252,83 +394,99 @@ gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos
             }
         }
 
+        //Making vertex position as 0,0
+        U[srcnodeindex][0] = 0.0; U.at(srcnodeindex).at(1) = 0.0;
+
         //Remove from nodeslist;
-        int indextoremove;
-        indextoremove = find(stage2nodes.begin(),stage2nodes.end(),srcnodeindex)-stage2nodes.begin();
-        stage2nodes.erase(stage2nodes.begin()+indextoremove);
-        cout<<"Merging done"<<endl;
+        // int indextoremove;
+        // indextoremove = find(stage2nodes.begin(),stage2nodes.end(),srcnodeindex)-stage2nodes.begin();
+        stage2nodes.erase(find(stage2nodes.begin(),stage2nodes.end(),srcnodeindex));//stage2nodes.begin()+indextoremove);
+        cout<<"Merging done"<<num_vertices<<endl;
         srcnodeindex = 0; destnodeindex = 0;
     }
     else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && mode == 'A')
     {
+        cout<<"In add mode: fetched points: "<<fetchedpoints<<endl;
         if(fetchedpoints == 0)
         {
             glfwGetCursorPos(window, &xpos1, &ypos1);
-            //Convert it to world coordinates
-            //For now assuming that xpos1 and ypos1 are world coordinates
             for(int i=0;i<stage2nodes.size();i++)
             {
                 double currx,curry;
-                currx = U.at(stage2nodes.at(i)).at(0)/120 - 1.0;
-                curry = U.at(stage2nodes.at(i)).at(1)/120 - 1.0;
-                //pixel size is 10.. without convertion,
-                if(xpos1 >= currx-5 && xpos1<= currx+5 && ypos1 >= curry-5 && ypos1<=curry-5)
+                currx = U[stage2nodes.at(i)][0]/120 - 1.0;
+                curry = U[stage2nodes.at(i)][1]/120 - 1.0;
+
+                //Project it to compare with clicked coordinate.
+                double chkx,chky,chkz;
+                gluProject(currx/2,curry/2,0.0,model_view,projection,viewport,&chkx,&chky,&chkz);
+
+                if((xpos1 <= chkx+5 && xpos1 >= chkx - 5) && (ypos1 <= chky+5 && ypos1 >= chky - 5))
                 //If the clicked position is somewhere in the 10*10 square of the node, we pick the node as src
                 //keep the -y in mind and make changes if needed
                 {
                     srcnodeindex = stage2nodes.at(i);
-                    fetchedpoints = (fetchedpoints+1)%3; break;
+                    fetchedpoints = (fetchedpoints+1)%3;
+                    cout<<"Fetched source"<<endl;break;
                 }
             }
         }
         else if(fetchedpoints == 1)
         {
             glfwGetCursorPos(window, &xpos2, &ypos2);
-            cout<<"x: "<<xpos2<<"  y: "<<ypos2<<endl;
-            //convert it to world coordinates
-            //Assuming the conversion done,
+
             for(int i=0;i<stage2nodes.size();i++)
             {
                 double currx,curry;
-                currx = U.at(stage2nodes.at(i)).at(0)/120 - 1.0;
-                curry = U.at(stage2nodes.at(i)).at(1)/120 - 1.0;
-                //pixel size is 10.. without convertion,
-                if(xpos2 >= currx-5 && xpos2<= currx+5 && ypos2 >= curry-5 && ypos2<=curry-5 && i!=srcnodeindex)
+                currx = U[stage2nodes.at(i)][0]/120 - 1.0;
+                curry = U[stage2nodes.at(i)][1]/120 - 1.0;
+
+                //Project it to compare with clicked coordinate.
+                double chkx,chky,chkz;
+                gluProject(currx/2,curry/2,0.0,model_view,projection,viewport,&chkx,&chky,&chkz);
+
+                if((xpos2 <= chkx+5 && xpos2 >= chkx - 5) && (ypos2 <= chky+5 && ypos2 >= chky - 5))
                 //If the clicked position is somewhere in the 10*10 square of the node, we pick the node as src
-                //keep the -y in mind and make changes if needed
                 {
                     destnodeindex = stage2nodes.at(i);
                     fetchedpoints = (fetchedpoints+1)%3;
-                    cout<<"fetched both the points. Select a position in between them"<<endl;break;
+                    cout<<"fetched both the points. click anywhere on the edge to add new point"<<endl;
                 }
             }
         }
-        else
+        else if(fetchedpoints == 2)
         {
             glfwGetCursorPos(window, &xpos1, &ypos1);
-            //Convert it to world coordinates
-            //For now assuming that xpos1 and ypos1 are world coordinates
+            gluUnProject(xpos1,ypos1,0.0,model_view,projection,viewport,&pos3D_x,&pos3D_y,&pos3D_z);
+            xpos1 = 2*pos3D_x;
+            ypos1 = 2*pos3D_y;
+
+            cout<<xpos1<<" "<<ypos1<<endl;
+            double newnodex = (xpos1+1.0)*120;
+            double newnodey = (ypos1+1.0)*120;
+
             double xdist1,xdist2,ydist1,ydist2;
-            xdist1 = xpos1 - U[srcnodeindex][0]; xdist1 = xdist1 > 0? xdist1 : -1 * xdist1;
-            ydist1 = ypos1 - U[srcnodeindex][1]; ydist1 = ydist1 > 0? ydist1 : -1 * ydist1;
-            xdist2 = xpos1 - U[destnodeindex][0]; xdist2 = xdist2 > 0? xdist2 : -1 * xdist2;
-            ydist2 = ypos1 - U[destnodeindex][1]; ydist2 = ydist2 > 0? ydist2 : -1 * ydist2;
+            xdist1 = xpos1 - (U[srcnodeindex][0]/120) + 1.0; xdist1 = xdist1 > 0? xdist1 : -1 * xdist1;
+            ydist1 = ypos1 - (U[srcnodeindex][1]/120) + 1.0; ydist1 = ydist1 > 0? ydist1 : -1 * ydist1;
+            xdist2 = xpos1 - (U[destnodeindex][0]/120) + 1.0; xdist2 = xdist2 > 0? xdist2 : -1 * xdist2;
+            ydist2 = ypos1 - (U[destnodeindex][1]/120) + 1.0; ydist2 = ydist2 > 0? ydist2 : -1 * ydist2;
 
             double slopeofedge = (U[destnodeindex][1] - U[srcnodeindex][1]) / (U[destnodeindex][0] - U[srcnodeindex][0]);
 
             if(xdist1 > ydist1 && xdist2 > ydist2)
             //y coordinate of new point to be changed
             {
-                ypos1 = (slopeofedge * (xpos1 - U[srcnodeindex][0])) + U[srcnodeindex][1];
+               newnodey = (slopeofedge * (newnodex - U[srcnodeindex][0])) + U[srcnodeindex][1];
+               ypos1 = (newnodey/120) - 1.0;
             }
             else if(ydist1 > xdist1 && ydist2 > xdist2)
             //x coordinate to be changed
             {
-                xpos1 = ((ypos1 - U[srcnodeindex][1]) / slopeofedge) + U[srcnodeindex][0];
+               newnodex = ((newnodey - U[srcnodeindex][1]) / slopeofedge) + U[srcnodeindex][0];
+               xpos1 = (newnodex/120) - 1.0;
             }
 
             vector<double> temp;
-            temp.push_back(xpos1); temp.push_back(ypos1);
+            temp.push_back(newnodex); temp.push_back(newnodey);
 
             //Insert in original vertices and in modified vertices
             V.push_back(temp);
@@ -337,43 +495,67 @@ gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos
             //index of new node to be used in edges and dneighborhood, history
             int newindex = V.size() - 1;
 
-            //Adding an entry in history.
+            //creating an entry in history.
             vector<int> dummy;
             dummy.push_back(newindex);
             history.push_back(dummy);
+            dummy.clear();
 
-            int positionindex = 0;int ki;
+            //Removing edge from E
             for(int i=0;i<E.size();i++)
             {
-                if(!(E[i][0]==0 && E[i][1]))
-                {
-                    if((E[i][0] == srcnodeindex && E[i][1] == destnodeindex) || (E[i][0] == destnodeindex && E[i][1] == srcnodeindex))
-                    {
-                        E[i][0] = 0; E[i][1] = 0;
-                        for(ki = 2*positionindex;ki<num_vertices;ki++)
-                        {
-                            v_positions[ki] = v_positions[ki+2];
-                            v_colors[ki] = v_colors[ki+2];
-                        }
-                        break;
-                    }
-                    positionindex++;
-                }
+               if(!(E[i][0]==0 && E[i][1]))
+               {
+                   if((E[i][0] == srcnodeindex && E[i][1] == destnodeindex) || (E[i][0] == destnodeindex && E[i][1] == srcnodeindex))
+                   {
+                       E[i][0] = 0; E[i][1] = 0;
+                       break;
+                   }
+               }
             }
-
-            v_positions[ki] = glm::vec4((U[srcnodeindex][0])/120 - 1.0, -(U[srcnodeindex][1])/120 + 1.0,0.0f,1.0f);
-            v_colors[ki] = avail_colors[ki%4]; ki++;
-            v_positions[ki] = glm::vec4((U[newindex][0])/120 - 1.0, -(U[newindex][1])/120 + 1.0,0.0f,1.0f);
-            v_colors[ki] = avail_colors[ki%4]; ki++;
-            v_positions[ki] = glm::vec4((U[newindex][0])/120 - 1.0, -(U[newindex][1])/120 + 1.0,0.0f,1.0f);
-            v_colors[ki] = avail_colors[ki%4]; ki++;
-            v_positions[ki] = glm::vec4((U[destnodeindex][0])/120 - 1.0, -(U[destnodeindex][1])/120 + 1.0,0.0f,1.0f);
-            v_colors[ki] = avail_colors[ki%4]; ki++;
 
             //Add new edges to edges list
             vector<int> temp1;
             temp1.push_back(srcnodeindex); temp1.push_back(newindex); E.push_back(temp1);
             temp1.push_back(newindex); temp1.push_back(destnodeindex); E.push_back(temp1);
+
+            //Editing v_positions
+            //Remove the original edge from v_positions and adding new edges
+            int ki;
+            for(int i=0;i<2*stage2nodes.size();i+=2)
+            {
+               double vposx = v_positions[i].x;
+               double vposy = v_positions[i].y;
+               double vposx1 = v_positions[i+1].x;
+               double vposy1 = v_positions[i+1].y;
+               double srcvertx = U[srcnodeindex][0]/120-1.0;
+               double srcverty = 1.0 - (U[srcnodeindex][1]/120);
+               double destvertx = U[destnodeindex][0]/120-1.0;
+               double destverty = 1.0 - (U[destnodeindex][1]/120);
+
+               if((abs(vposx - srcvertx) < 0.01 && abs(vposy - srcverty)<0.01 && abs(vposx1 - destvertx) < 0.01 && abs(vposy1 - destverty)<0.01) ||
+                       (abs(vposx - destvertx)<0.01 && abs(vposy - destverty)<0.01 && abs(vposx1 - srcvertx) < 0.01 && abs(vposy1 - srcverty)<0.01))
+               {
+                   cout<<"removing at "<<i<<endl;
+                   for(ki=i; ki <= 2*stage2nodes.size()-1; ki+=2)
+                   {
+                       v_positions[ki] = v_positions[ki+2];
+                       v_positions[ki+1] = v_positions[ki+3];
+                   }
+
+                   ki-=4;
+
+                   v_positions[ki] = glm::vec4(srcvertx, srcverty,0.0f,1.0f);
+                   v_colors[ki] = avail_colors[ki%4]; ki++;
+                   v_positions[ki] = glm::vec4(xpos1, -ypos1,0.0f,1.0f);
+                   v_colors[ki] = avail_colors[ki%4]; ki++;
+                   v_positions[ki] = glm::vec4(xpos1, -ypos1,0.0f,1.0f);
+                   v_colors[ki] = avail_colors[ki%4]; ki++;
+                   v_positions[ki] = glm::vec4(destvertx, destverty,0.0f,1.0f);
+                   v_colors[ki] = avail_colors[ki%4]; ki++;
+                   break;
+               }
+            }
 
             //Adjusting History of src and new node
             for(int i=0; i<history.at(srcnodeindex).size(); i++)
@@ -405,14 +587,23 @@ gluUnProject(xpos1, ypos1, 0.01,model_view, projection, viewport,	&pos3D_x, &pos
             fetchedpoints = (fetchedpoints+1)%3;
         }
     }
+    changeObjects();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    renderGL();
 }
 
 void initBuffersGL(void)
 {
   //cg::loadSkeleton();
-  // loadvertexdata(); //to debug.
+  loadvertexdata();
   loadSkeletondata();
   loadSkeleton();
+
+
+  //For glu project and glu unproject
+  glGetDoublev(GL_MODELVIEW_MATRIX, model_view);
+  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+  glGetIntegerv(GL_VIEWPORT, viewport);
 
   //Ask GL for a Vertex Attribute Object (vao)
   glGenVertexArrays (1, &vao);
@@ -451,23 +642,6 @@ void initBuffersGL(void)
   uModelViewMatrix = glGetUniformLocation( shaderProgram, "uModelViewMatrix");
 }
 
-void renderGL(void)
-{
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  rotation_matrix = glm::rotate(glm::mat4(1.0f), xrot, glm::vec3(1.0f,0.0f,0.0f));
-  rotation_matrix = glm::rotate(rotation_matrix, yrot, glm::vec3(0.0f,1.0f,0.0f));
-  rotation_matrix = glm::rotate(rotation_matrix, zrot, glm::vec3(0.0f,0.0f,1.0f));
-  ortho_matrix = glm::ortho(-2.0, 2.0, -2.0, 2.0, -2.0, 2.0);
-
-  modelview_matrix = ortho_matrix * rotation_matrix;
-
-  glUniformMatrix4fv(uModelViewMatrix, 1, GL_FALSE, glm::value_ptr(modelview_matrix));
-  // Draw
-  glDrawArrays(GL_LINES, 0, num_vertices);
-  glDrawArrays(GL_POINTS, 0, num_vertices);
-
-}
 
 int main(int argc, char** argv)
 {
@@ -528,6 +702,7 @@ int main(int argc, char** argv)
   //Initialize GL state
   csX75::initGL();
   initBuffersGL();
+  cout<<"Current mode is idle. Press E to start editing"<<endl;
 
   // Loop until the user closes the window
   while (glfwWindowShouldClose(window) == 0)
@@ -542,6 +717,51 @@ int main(int argc, char** argv)
       // Poll for and process events
       glfwPollEvents();
     }
+
+    float colorvs[6][3] =
+    {
+        1.0,0.0,0.0,
+        0.0,1.0,0.0,
+        0.0,0.0,1.0,
+        1.0,1.0,0.0,
+        1.0,0.0,1.0,
+        0.0,1.0,1.0
+    };
+    vector<int> colorcodes(V.rows(),0);
+    int cc=0;
+    for(int i=0; i<stage2nodes.size(); i++)
+    {
+        for(int j=0; j< history.at(stage2nodes[i]).size();j++)
+        {
+              colorcodes[history[stage2nodes[i]][j]] = cc;
+        }
+        cc = (cc+1)%6;
+    }
+
+    ofstream op;
+    op.open("../2d/skeleton.raw");
+    for(int i=0; i<E2.rows(); i++)
+    {
+        op<<V(E2(i,0),0)<<" "<<V(E2(i,0),1)<<" "<<V(E2(i,0),2)<<endl;
+        int q = colorcodes(E2(i,0));
+        op<<colorvs[q][0]<<" "<<colorvs[q][1]<<" "<<colorvs[q][2]<<endl;
+        op<<V(E2(i,1),0)<<" "<<V(E2(i,1),1)<<" "<<V(E2(i,1),2)<<endl;
+        q = colorcodes(E2(i,1));
+        op<<colorvs[q][0]<<" "<<colorvs[q][1]<<" "<<colorvs[q][2]<<endl;
+    }
+
+    for(int i=0;i<E.rows();i++)
+    {
+      if(!(E(i,0)== 0 && E(i,1)== 0))
+      {
+        op<<U(E(i,0),0)<<" "<<U(E(i,0),1)<<" "<<U(E(i,0),2)<<endl;
+        op<<1.0<<" "<<1.0<<" "<<1.0<<endl;
+        op<<U(E(i,1),0)<<" "<<U(E(i,1),1)<<" "<<U(E(i,1),2)<<endl;
+        op<<1.0<<" "<<1.0<<" "<<1.0<<endl;
+      }
+    }
+
+    op.close();
 
   glfwTerminate();
   return 0;

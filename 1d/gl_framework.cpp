@@ -42,13 +42,25 @@ namespace csX75
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
       glfwSetWindowShouldClose(window, GL_TRUE);
     else if (key == GLFW_KEY_E && action == GLFW_PRESS && mode == 'I')
+    {
       mode = 'E';
+      std::cout<<"Now in editing mode. Press M to merge and A to add new. To exit edit mode press I"<<std::endl;
+    }
     else if (key == GLFW_KEY_I && action == GLFW_PRESS && mode != 'I')
-      mode = 'I';
+    {
+        mode = 'I';
+        std::cout<<"Idle mode activated. Press E to edit"<<std::endl;
+    }
     else if (key == GLFW_KEY_M && action == GLFW_PRESS && mode == 'E')
-      mode = 'M';
-    else if (key == GLFW_KEY_A && action == GLFW_PRESS && mode == 'E')
-      mode == 'A';
+    {
+        mode = 'M';
+        std::cout<<"Merge mode. Select source and destination nodes"<<std::endl;
+    }
+    else if (key == GLFW_KEY_A && action == GLFW_PRESS && (mode == 'E' || mode == 'M'))
+    {
+      mode = 'A';
+      std::cout<<"Add mode. Select source, destination and click a point on edge"<<std::endl;
+    }
     else if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
       yrot -= 1.0;
     else if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
@@ -61,8 +73,6 @@ namespace csX75
       zrot += 1.0;
     else if (key == GLFW_KEY_PAGE_DOWN && action == GLFW_PRESS)
       zrot += 1.0;
-
-    std::cout<<"Mode: "<<mode<<std::endl;
   }
 
 };
